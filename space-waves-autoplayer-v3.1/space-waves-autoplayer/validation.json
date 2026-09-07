@@ -1,0 +1,35 @@
+{
+  "frames": 1322,
+  "arrow_detected": 1167,
+  "commands_suggested": 1167,
+  "full_routes": 870,
+  "recovery_routes": 297,
+  "median_processing_ms": 19.54,
+  "p95_processing_ms": 25.1,
+  "estimated_scroll_pixels_per_second": 302.84,
+  "note": "Offline perception/planning check only. Does not measure autonomous completion or input latency.",
+  "version": "2.1",
+  "regression_tests_passed": 11,
+  "screenshot_check": {
+    "isolated_saws_detected": 2,
+    "arrow_present": false
+  },
+  "ocr_check": {
+    "source": "Generated menu examples, not live game menus",
+    "next_confidence": 0.9989,
+    "give_up_confidence": 0.9727
+  },
+  "live_hard_level_tested": false,
+  "live_windows_input_tested": false,
+  "live_menu_clicks_tested": false,
+  "setup_fix": {
+    "python_versions": [
+      "3.12 64-bit",
+      "3.11 64-bit"
+    ],
+    "uses_separate_environment": ".venv-compatible",
+    "windows_python312_core_dependency_resolution": "passed",
+    "full_windows_install_tested": false,
+    "note": "Cross-platform pip checks excluded pynput because pip evaluated Linux-specific evdev markers on this Linux host. Windows launcher not executed here."
+  }
+}

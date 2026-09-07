@@ -1,0 +1,5 @@
+numpy>=2.0,<3
+opencv-python>=4.10,<6
+mss>=9,<11
+pynput>=1.7,<2
+rapidocr_onnxruntime==1.4.4
