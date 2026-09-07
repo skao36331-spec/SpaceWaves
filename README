@@ -1,0 +1,35 @@
+Space Waves Autoplayer
+A screen-based bot for the browser game Space Waves. It watches your screen, detects the ship and obstacles, and plays automatically — no game files are read or modified.
+What it does
+Tracks the ship and plans a safe path around obstacles in real time
+Detects moving hazards (gears) and predicts their motion
+Recognizes and clicks common menu buttons (Give Up, Next, Retry, Continue Playing, No Thanks) using on-screen text — no guessed coordinates
+Works on any site hosting the game (CrazyGames, MSN, etc.)
+Requirements
+Windows
+64-bit Python 3.11 or 3.12 (the OCR dependency doesn't support 3.13+)
+Setup
+Extract this folder anywhere.
+Run `START.bat`. It creates its own environment and installs dependencies on first run (internet needed once).
+Usage
+Open Space Waves in your browser.
+Run `START.bat`.
+When prompted, drag a box around just the game playfield — a tight selection keeps it running fast.
+Click into the game, start/resume a level, then press F8 to start.
+Press F9 to stop.
+Useful flags:
+```
+START.bat --fast          # default: cheaper obstacle math, good for slower PCs
+START.bat --no-fast       # exact (slower) obstacle math
+START.bat --margin 1      # less safety buffer around obstacles (for very tight levels)
+START.bat --title "MSN"   # if playing on a site whose tab title isn't matched by default
+START.bat --preview       # show a debug overlay window
+```
+Notes
+The bot pauses input whenever the game tab loses focus, and resumes automatically when it's focused again.
+If you resize, zoom, or fullscreen the browser after selecting the playfield, restart and reselect.
+Performance depends heavily on level difficulty; very tight sections may still be hard to clear reliably.
+Tests
+```
+python -m unittest test_planner
+```
