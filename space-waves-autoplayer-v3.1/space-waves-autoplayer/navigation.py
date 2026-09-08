@@ -78,11 +78,17 @@ class Vision:
                 remove=np.zeros_like(blocked)
                 # The arrow's dark border has sharp tips extending beyond its
                 # white triangle. Remove its enclosing contour when isolated.
-                dark=(hsv[:,:,2]<self.background*.45).astype(np.uint8)
+                # Only inspect the neighborhood which can contain an outline
+                # of the allowed size. Avoid scanning the entire course twice.
+                left=max(0,bx-25);top=max(0,by-25)
+                right=min(frame.shape[1],bx+bw+25);bottom=min(frame.shape[0],by+bh+25)
+                dark=(hsv[top:bottom,left:right,2]<self.background*.45).astype(np.uint8)
                 outlines,_=cv2.findContours(dark,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
                 outer=None
                 for outline in outlines:
+                    outline=outline+np.array([[[left,top]]])
                     ox,oy,ow,oh=cv2.boundingRect(outline)
+                    if ox<=left or oy<=top or ox+ow>=right or oy+oh>=bottom:continue
                     if ow>bw+24 or oh>bh+24:continue
                     if cv2.pointPolygonTest(outline,(float(bx+bw/2),float(by+bh/2)),False)>=0:
                         outer=outline;break
@@ -101,7 +107,9 @@ class Vision:
         # narrow diagonal gaps between obstacles. --fast trades this back
         # for the cheaper approximation on weaker machines.
         if self.fast:
-            return cv2.distanceTransform(1-static,cv2.DIST_L2,3)
+            # 5x5 has much smaller diagonal error than 3x3, without the
+            # cost of the exact transform across the whole playfield.
+            return cv2.distanceTransform(1-static,cv2.DIST_L2,5)
         return cv2.distanceTransform(1-static,cv2.DIST_L2,cv2.DIST_MASK_PRECISE)
 
     def read(self,image):
@@ -116,14 +124,18 @@ class Vision:
         # the current frame regardless.
         for g in self.hazards:
             cv2.circle(white,(round(g.x),round(g.y)),int(np.ceil(g.radius+3)),0,-1)
-        n,labels,stats,centers=cv2.connectedComponentsWithStats(white)
+        # Candidates cannot occur outside this horizontal strip. Include
+        # half a maximum arrow width so components at its edge stay intact.
+        left=max(0,int(.10*WIDTH)-53);right=min(WIDTH,int(.74*WIDTH)+53)
+        n,labels,stats,centers=cv2.connectedComponentsWithStats(white[:,left:right])
         candidates=[]
         for i in range(1,n):
             bx,by,bw,bh,area=stats[i];cx,cy=centers[i]
+            bx+=left;cx+=left
             if not (.10*WIDTH<cx<.74*WIDTH and .025*h<cy<.975*h):continue
             if not (9<=bw<=52 and 9<=bh<=52 and 80<=area<=1200):continue
             if not (.28<area/(bw*bh)<.88 and .42<bw/bh<2.3):continue
-            patch=(labels[by:by+bh,bx:bx+bw]==i).astype(np.uint8)
+            patch=(labels[by:by+bh,bx-left:bx-left+bw]==i).astype(np.uint8)
             cs,_=cv2.findContours(patch,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
             contour=max(cs,key=cv2.contourArea)
             approx=cv2.approxPolyDP(contour,.055*cv2.arcLength(contour,True),True)
@@ -218,11 +230,11 @@ class Planner:
         x,y,r=player;h,w=clearance.shape
         if not (0<=x<w and 0<=y<h):return held,[],"RECOVERY: invalid position"
         field=self._field(clearance,x,vx)
-        lead=min(28,max(0,vx*self.latency))
+        lead=min(w-8-x,max(0,vx*self.latency))
         startx=min(w-8,x+lead)
         starty=float(np.clip(y+(-1 if held else 1)*lead*slope,1,h-2))
         # Action spacing cannot be faster than approximately one capture cycle.
-        step=max(3,min(24,round(vx*self.control_dt)))
+        step=max(2,min(w//4,int(np.ceil(vx*self.control_dt))))
         visible_right=min(w-2,int(w*.925))  # fixed right-hand decorative rail
         xs=np.arange(round(startx),visible_right-int(np.ceil(r+self.margin))-step-2,step,dtype=int)
         if len(xs)<3:return held,[],"RECOVERY: course edge"
@@ -241,6 +253,7 @@ class Planner:
         start_margin=min(radius,max(r*.40,current-1))
         cost=np.zeros((2,h),np.float32)
         choices=np.zeros((len(xs),2,h),np.uint8)
+        first_cost=None
         BIG=1e7
         # Build the swept-clearance table in bulk. Only the backward recurrence
         # remains sequential; this keeps fine planning affordable at high FPS.
@@ -271,12 +284,19 @@ class Planner:
                 choices[j,previous]=b<a
                 new[previous]=np.minimum(a,b)
             cost=new
-        previous=0 if held else 1;yy=int(round(starty))
-        first=int(choices[0,previous,yy])
-        risky=cost[previous,yy]>=BIG
+            if j==0:first_cost=opts
+        previous=0 if held else 1
+        # Interpolate action costs at the actual subpixel position, not the
+        # rounded policy bit. Rounding the bit can flip a tight turn early.
+        lo=int(np.floor(starty));hi=min(h-1,lo+1);fraction=starty-lo
+        scores=[float(v[lo]*(1-fraction)+v[hi]*fraction)+
+                (.12 if action!=previous else 0)
+                for action,v in enumerate(first_cost)]
+        first=int(scores[1]<scores[0])
+        risky=scores[first]>=BIG
         path=[(int(startx),int(round(starty)))];pos=starty
         for j,xx in enumerate(xs):
-            action=int(choices[j,previous,int(np.clip(round(pos),0,h-1))])
+            action=first if j==0 else int(choices[j,previous,int(np.clip(round(pos),0,h-1))])
             pos+=(-1 if action==0 else 1)*delta
             if not 1<=pos<h-1:break
             path.append((int(xx+step),round(pos)));previous=action

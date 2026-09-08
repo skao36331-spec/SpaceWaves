@@ -259,7 +259,7 @@ def live(args):
                     if active and p:
                         # Include measured processing age in addition to the observed
                         # command-to-motion delay, bounded to avoid wild prediction.
-                        planner.latency=float(np.clip(delay+(time.perf_counter()-started)*.5,.008,.10))
+                        planner.latency=float(np.clip(delay+(time.perf_counter()-started),.008,.15))
                         control_dt=.9*control_dt+.1*float(np.clip(started-last_loop,1/120,.1))
                         planner.control_dt=control_dt
                         action,path,status=planner.choose(p,clearance,motion.vx,motion.slope,held)
@@ -311,7 +311,7 @@ def live(args):
                         if menu.error:print('Menu OCR unavailable: '+menu.error,flush=True)
                         last_log=started
                     errors=0;last_loop=started
-                    time.sleep(max(0,1/90-(time.perf_counter()-started)))
+                    time.sleep(max(0,1/120-(time.perf_counter()-started)))
                 except Exception as error:
                     with gate:release()
                     errors+=1
@@ -333,7 +333,7 @@ def main():
     p.add_argument('--latency',type=float,default=25,help='Initial estimated capture/input latency in milliseconds')
     p.add_argument('--preview',action='store_true',help='Show debug view; keep it outside the game')
     p.add_argument('--fast',action=argparse.BooleanOptionalAction,default=True,
-                   help='Cheaper obstacle-distance math (default: on). It only meaningfully differs from the exact math on rare, very tight diagonal gaps. Use --no-fast for the exact (slower) version.')
+                   help='Fast 5x5 obstacle-distance approximation (default: on). Use --no-fast for exact diagonal clearance.')
     p.add_argument('--title',help='Extra window-title text to accept as the game tab (in addition to "space waves"/"spacewaves"), for sites like MSN or other mirrors whose tab title differs')
     args=p.parse_args()
     cv2.setNumThreads(1)
