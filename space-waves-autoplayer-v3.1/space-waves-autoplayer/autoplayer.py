@@ -266,7 +266,7 @@ def live(args):
                     elif active:status='Waiting for arrow / checking menu (still enabled)'
                     elif state['armed']:status='Waiting for game focus (still enabled)'
                     else:status='Press F8 in the game'
-                    if active and started-last_ocr>.55:
+                    if active and started-last_ocr>(.25 if not p else .55):
                         menu.submit(frame,started);last_ocr=started
                     click=None;result=menu.poll()
                     if result:

@@ -61,6 +61,10 @@ class Vision:
             angles=np.linspace(0,2*np.pi,40,endpoint=False)
             rx=np.rint(cx+(radius+4)*np.cos(angles)).astype(int)
             ry=np.rint(cy+(radius+4)*np.sin(angles)).astype(int)
+            # The enclosing circle can extend beyond the frame even when
+            # the contour's center passed the earlier test. Keep such gears
+            # in static geometry until their full sampling ring is visible.
+            if np.any(rx<0) or np.any(rx>=frame.shape[1]) or np.any(ry<0) or np.any(ry>=frame.shape[0]):continue
             if np.mean(blocked[ry,rx])>.12:continue
             hazards.append(Hazard(cx,cy,radius+1))
         static=blocked.copy()
